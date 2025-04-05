@@ -1,42 +1,72 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, TextInput, SafeAreaView } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, TextInput, SafeAreaView, Alert } from 'react-native';
 import { FontAwesome } from '@expo/vector-icons';
+import { getTodos, createTodo, updateTodo, deleteTodo } from '../../src/Api';
 
 export default function TodosScreen() {
     const [todos, setTodos] = useState([]);
     const [newTodo, setNewTodo] = useState('');
 
-    const addTodo = () => {
-        if (newTodo.trim()) {
-            setTodos([
-                ...todos,
-                {
-                    id: Date.now().toString(),
-                    text: newTodo,
-                    completed: false,
-                },
-            ]);
-            setNewTodo('');
+    useEffect(() => {
+        fetchTodos();
+    }, []);
+
+    const fetchTodos = async () => {
+        try {
+            const response = await getTodos();
+            setTodos(response.data);
+        } catch (error) {
+            console.error('Error fetching todos:', error);
+            Alert.alert('Error', 'Failed to load todos');
         }
     };
 
-    const toggleTodo = (id) => {
-        setTodos(
-            todos.map((todo) =>
-                todo.id === id ? { ...todo, completed: !todo.completed } : todo
-            )
-        );
+    const addTodo = async () => {
+        if (!newTodo.trim()) return;
+
+        try {
+            const response = await createTodo({
+                title: newTodo,
+                description: '',
+                completed: false,
+                dueDate: new Date()
+            });
+            setTodos([...todos, response.data]);
+            setNewTodo('');
+        } catch (error) {
+            console.error('Error creating todo:', error);
+            Alert.alert('Error', 'Failed to create todo');
+        }
     };
 
-    const deleteTodo = (id) => {
-        setTodos(todos.filter((todo) => todo.id !== id));
+    const toggleTodo = async (todo) => {
+        try {
+            const response = await updateTodo(todo._id, {
+                ...todo,
+                completed: !todo.completed
+            });
+            setTodos(todos.map(t => t._id === todo._id ? response.data : t));
+        } catch (error) {
+            console.error('Error updating todo:', error);
+            Alert.alert('Error', 'Failed to update todo');
+        }
+    };
+
+    const deleteTodo = async (todoId) => {
+        try {
+            await deleteTodo(todoId);
+            setTodos(todos.filter(t => t._id !== todoId));
+        } catch (error) {
+            console.error('Error deleting todo:', error);
+            Alert.alert('Error', 'Failed to delete todo');
+        }
     };
 
     const renderItem = ({ item }) => (
         <View style={styles.todoItem}>
             <TouchableOpacity
                 style={styles.todoContent}
-                onPress={() => toggleTodo(item.id)}
+                onPress={() => toggleTodo(item)}
             >
                 <FontAwesome
                     name={item.completed ? 'check-circle' : 'circle-o'}
@@ -49,11 +79,11 @@ export default function TodosScreen() {
                         item.completed && styles.completedTodo,
                     ]}
                 >
-                    {item.text}
+                    {item.title}
                 </Text>
             </TouchableOpacity>
             <TouchableOpacity
-                onPress={() => deleteTodo(item.id)}
+                onPress={() => deleteTodo(item._id)}
                 style={styles.deleteButton}
             >
                 <FontAwesome name="trash" size={20} color="#FF5252" />
@@ -79,7 +109,7 @@ export default function TodosScreen() {
                 <FlatList
                     data={todos}
                     renderItem={renderItem}
-                    keyExtractor={(item) => item.id}
+                    keyExtractor={(item) => item._id}
                     style={styles.list}
                     contentContainerStyle={styles.listContent}
                 />

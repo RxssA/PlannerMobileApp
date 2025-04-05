@@ -1,8 +1,8 @@
 import axios from 'axios';
 
-const API_URL = "http://localhost:5000/api";
+const API_URL = "http://192.168.0.23:5000/api";
 
-//endpoints
+//setting up all endpoints here make it easier to manage them
 export const createActivity = (data) => axios.post(`${API_URL}/activities/create`, data);
 export const getActivities = () => axios.get(`${API_URL}/activities/list`);
 export const updateActivity = (id, data) => axios.put(`${API_URL}/activities/${id}`, data);

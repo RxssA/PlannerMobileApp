@@ -1,9 +1,11 @@
 import React, { useEffect, useState } from "react";
-import { View, Text, FlatList, TouchableOpacity, StyleSheet, Modal } from "react-native";
+import { View, Text, FlatList, TouchableOpacity, StyleSheet, Modal, Alert } from "react-native";
 import { getActivities, createActivity } from "../../src/Api";
 import { useRouter } from "expo-router";
 import { FontAwesome } from '@expo/vector-icons';
 import { TextInput, Button } from "react-native";
+
+const API_URL = "http://192.168.0.23:5000/api";
 
 export default function Home() {
     const router = useRouter();
@@ -15,16 +17,28 @@ export default function Home() {
         loadActivities();
     }, []);
 
-    const loadActivities = () => {
-        getActivities().then(response => setActivities(response.data));
+    const loadActivities = async () => {
+        try {
+            const response = await getActivities();
+            setActivities(response.data);
+        } catch (error) {
+            console.error('Error loading activities:', error);
+            Alert.alert('Error', 'Failed to load activities');
+        }
     };
 
-    const handleCreateActivity = () => {
-        createActivity(newActivity).then(() => {
-            setModalVisible(false);
-            setNewActivity({ title: '', date: '', description: '' });
-            loadActivities();
-        });
+    const handleCreateActivity = async () => {
+        try {
+            const response = await createActivity(newActivity);
+            if (response.data) {
+                setModalVisible(false);
+                setNewActivity({ title: '', date: '', description: '' });
+                loadActivities();
+            }
+        } catch (error) {
+            console.error('Error creating activity:', error);
+            Alert.alert('Error', 'Failed to create activity. Please try again.');
+        }
     };
 
     const navigateToChat = (activity) => {
@@ -35,29 +49,44 @@ export default function Home() {
             });
         } catch (error) {
             console.error('Error navigating to chat:', error);
+            Alert.alert('Error', 'Failed to navigate to chat');
         }
     };
 
     return (
         <View style={styles.container}>
-            <FlatList
-                data={activities}
-                keyExtractor={(item) => item._id}
-                renderItem={({ item }) => (
-                    <TouchableOpacity 
-                        onPress={() => navigateToChat(item)}
-                        style={styles.activityCard}
-                    >
-                        <View style={styles.activityHeader}>
-                            <Text style={styles.activityTitle}>{item.title}</Text>
-                            <Text style={styles.activityDate}>
-                                {new Date(item.date).toLocaleDateString()}
-                            </Text>
-                        </View>
-                        <Text style={styles.activityDescription}>{item.description}</Text>
-                    </TouchableOpacity>
-                )}
-            />
+            <TouchableOpacity 
+                style={styles.generalChatButton}
+                onPress={() => navigateToChat({ messages: [] })}
+            >
+                <Text style={styles.generalChatButtonText}>Go to General Chat</Text>
+            </TouchableOpacity>
+
+            {activities.length === 0 ? (
+                <View style={styles.emptyState}>
+                    <Text style={styles.emptyStateText}>No activities found</Text>
+                    <Text style={styles.emptyStateSubtext}>Create a new activity to get started!</Text>
+                </View>
+            ) : (
+                <FlatList
+                    data={activities}
+                    keyExtractor={(item) => item._id}
+                    renderItem={({ item }) => (
+                        <TouchableOpacity 
+                            onPress={() => navigateToChat(item)}
+                            style={styles.activityCard}
+                        >
+                            <View style={styles.activityHeader}>
+                                <Text style={styles.activityTitle}>{item.title}</Text>
+                                <Text style={styles.activityDate}>
+                                    {new Date(item.date).toLocaleDateString()}
+                                </Text>
+                            </View>
+                            <Text style={styles.activityDescription}>{item.description}</Text>
+                        </TouchableOpacity>
+                    )}
+                />
+            )}
             
             <TouchableOpacity 
                 style={styles.addButton}
@@ -110,6 +139,35 @@ const styles = StyleSheet.create({
         flex: 1,
         padding: 20,
         backgroundColor: '#f5f5f5',
+    },
+    generalChatButton: {
+        backgroundColor: '#007AFF',
+        padding: 15,
+        borderRadius: 5,
+        marginBottom: 20,
+        alignItems: 'center',
+    },
+    generalChatButtonText: {
+        color: 'white',
+        fontSize: 16,
+        fontWeight: 'bold',
+    },
+    emptyState: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        padding: 20,
+    },
+    emptyStateText: {
+        fontSize: 18,
+        fontWeight: 'bold',
+        color: '#333',
+        marginBottom: 10,
+    },
+    emptyStateSubtext: {
+        fontSize: 16,
+        color: '#666',
+        textAlign: 'center',
     },
     activityCard: {
         backgroundColor: 'white',

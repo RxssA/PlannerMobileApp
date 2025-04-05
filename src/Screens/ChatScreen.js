@@ -2,12 +2,12 @@ import React, { useEffect, useState } from "react";
 import { View, Text, TextInput, Button, FlatList } from "react-native";
 import io from "socket.io-client";
 
-const socket = io("http://localhost:5000");
+const socket = io("http://192.168.0.23:5000");
 
 const ChatScreen = ({ route }) => {
     const { activity } = route.params;
     const [message, setMessage] = useState("");
-    const [messages, setMessages] = useState(activity.messages || []);
+    const [messages, setMessages] = useState(activity?.messages || []);
 
     useEffect(() => {
         socket.on("receiveMessage", (newMessage) => {
@@ -21,15 +21,24 @@ const ChatScreen = ({ route }) => {
         setMessage("");
     };
 
+    
     return (
-        <View>
+        <View style={{ flex: 1 }}>
             <FlatList
                 data={messages}
                 keyExtractor={(item, index) => index.toString()}
                 renderItem={({ item }) => <Text>{item.sender}: {item.message}</Text>}
+                contentContainerStyle={{ padding: 10 }}
             />
-            <TextInput value={message} onChangeText={setMessage} placeholder="Type a message" />
-            <Button title="Send" onPress={sendMessage} />
+            <View style={{ flexDirection: 'row', padding: 10 }}>
+                <TextInput
+                    value={message}
+                    onChangeText={setMessage}
+                    placeholder="Type a message"
+                    style={{ flex: 1, marginRight: 10, borderWidth: 1, padding: 8 }}
+                />
+                <Button title="Send" onPress={sendMessage} />
+            </View>
         </View>
     );
 };
