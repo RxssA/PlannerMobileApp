@@ -50,7 +50,6 @@ export default function Home() {
             }
         } catch (error) {
             console.error('Error logging in:', error);
-            // For fetch errors, the error message is in the error object itself
             const errorMessage = error.message || 'Failed to login. Please try again.';
             Alert.alert('Error', errorMessage);
         }
@@ -134,12 +133,6 @@ export default function Home() {
                 ) : (
                     <>
                         <TouchableOpacity 
-                            style={styles.generalChatButton}
-                            onPress={() => navigateToChat({ messages: [] })}
-                        >
-                            <Text style={styles.generalChatButtonText}>Go to General Chat</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity 
                             style={styles.logoutButton}
                             onPress={handleLogout}
                         >
@@ -192,7 +185,6 @@ export default function Home() {
                 </TouchableOpacity>
             )}
 
-            {/* Activity Creation Modal */}
             <Modal
                 animationType="slide"
                 transparent={true}
@@ -335,18 +327,6 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     signupButtonText: {
-        color: 'white',
-        fontSize: 16,
-        fontWeight: 'bold',
-    },
-    generalChatButton: {
-        backgroundColor: '#007AFF',
-        padding: 15,
-        borderRadius: 5,
-        flex: 1,
-        alignItems: 'center',
-    },
-    generalChatButtonText: {
         color: 'white',
         fontSize: 16,
         fontWeight: 'bold',

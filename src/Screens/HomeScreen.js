@@ -8,13 +8,10 @@ const HomeScreen = ({ navigation }) => {
     useEffect(() => {
         const fetchActivities = async () => {
             try {
-                console.log("Fetching activities...");
                 const response = await getActivities();
-                console.log("Activities response:", response.data);
                 setActivities(response.data);
             } catch (error) {
                 console.error("Error fetching activities:", error);
-                Alert.alert("Error", "Failed to load activities. Please check your connection.");
             }
         };
 
@@ -27,7 +24,6 @@ const HomeScreen = ({ navigation }) => {
                 onPress={() => navigation.navigate("ChatScreen", { activity: { messages: [] }})}
                 style={{ padding: 20, backgroundColor: '#007bff', marginBottom: 20, borderRadius: 5 }}
             >
-                <Text style={{ color: 'white', textAlign: 'center', fontSize: 16 }}>Go to General Chat</Text>
             </TouchableOpacity>
             {activities.length === 0 ? (
                 <Text style={{ textAlign: 'center', marginTop: 20 }}>No activities found</Text>

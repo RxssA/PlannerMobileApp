@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { View, Text, TextInput, Button, FlatList } from "react-native";
 import io from "socket.io-client";
 
-const socket = io("http://192.168.0.23:5000");
+const URL_socket = io("http://10.12.21.3:5000");
 
 const ChatScreen = ({ route }) => {
     const { activity } = route.params;
@@ -10,14 +10,14 @@ const ChatScreen = ({ route }) => {
     const [messages, setMessages] = useState(activity?.messages || []);
 
     useEffect(() => {
-        socket.on("receiveMessage", (newMessage) => {
+        URL_socket.on("receiveMessage", (newMessage) => {
             setMessages((prevMessages) => [...prevMessages, newMessage]);
         });
     }, []);
 
     const sendMessage = () => {
         const newMessage = { sender: "User", message, timestamp: new Date() };
-        socket.emit("sendMessage", newMessage);
+        URL_socket.emit("sendMessage", newMessage);
         setMessage("");
     };
 

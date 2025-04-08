@@ -16,7 +16,6 @@ const TodoScreen = () => {
             setTodos(response.data);
         } catch (error) {
             console.error('Error fetching todos:', error);
-            Alert.alert('Error', 'Failed to load todos');
         }
     };
 
@@ -34,7 +33,6 @@ const TodoScreen = () => {
             setNewTodo('');
         } catch (error) {
             console.error('Error creating todo:', error);
-            Alert.alert('Error', 'Failed to create todo');
         }
     };
 
@@ -47,7 +45,6 @@ const TodoScreen = () => {
             setTodos(todos.map(t => t._id === todo._id ? response.data : t));
         } catch (error) {
             console.error('Error updating todo:', error);
-            Alert.alert('Error', 'Failed to update todo');
         }
     };
 
@@ -57,7 +54,6 @@ const TodoScreen = () => {
             setTodos(todos.filter(t => t._id !== todoId));
         } catch (error) {
             console.error('Error deleting todo:', error);
-            Alert.alert('Error', 'Failed to delete todo');
         }
     };
 

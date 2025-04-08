@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, FlatList, StyleSheet, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, FlatList, StyleSheet, KeyboardAvoidingView, Platform, Image } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { FontAwesome } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
 
 export default function ChatScreen() {
     const router = useRouter();
@@ -9,6 +10,7 @@ export default function ChatScreen() {
     const [messages, setMessages] = useState([]);
     const [newMessage, setNewMessage] = useState('');
     const [parsedActivity, setParsedActivity] = useState(null);
+    const [image, setImage] = useState(null);
 
     useEffect(() => {
         try {
@@ -22,18 +24,38 @@ export default function ChatScreen() {
         }
     }, [activity]);
 
+    const pickImage = async () => {
+        const { status } = await ImagePicker.requestCameraPermissionsAsync();
+        if (status !== 'granted') {
+            alert('Sorry, we need camera permissions to make this work!');
+            return;
+        }
+
+        const result = await ImagePicker.launchCameraAsync({
+            mediaTypes: ImagePicker.MediaTypeOptions.Images,
+            allowsEditing: true,
+            aspect: [4, 3],
+            quality: 1,
+        });
+
+        if (!result.canceled) {
+            setImage(result.assets[0].uri);
+        }
+    };
+
     const sendMessage = () => {
-        if (newMessage.trim() && parsedActivity) {
+        if ((newMessage.trim() || image) && parsedActivity) {
             const message = {
                 id: Date.now().toString(),
                 text: newMessage,
+                image: image,
                 sender: 'User', 
                 timestamp: new Date().toISOString(),
                 activityId: parsedActivity._id,
             };
             setMessages([...messages, message]);
             setNewMessage('');
-            
+            setImage(null);
         }
     };
 
@@ -65,7 +87,16 @@ export default function ChatScreen() {
                         styles.messageContainer,
                         item.sender === 'User' ? styles.userMessage : styles.otherMessage
                     ]}>
-                        <Text style={styles.messageText}>{item.text}</Text>
+                        {item.image && (
+                            <Image 
+                                source={{ uri: item.image }} 
+                                style={styles.messageImage}
+                                resizeMode="cover"
+                            />
+                        )}
+                        {item.text && (
+                            <Text style={styles.messageText}>{item.text}</Text>
+                        )}
                         <Text style={styles.timestamp}>
                             {new Date(item.timestamp).toLocaleTimeString()}
                         </Text>
@@ -75,6 +106,9 @@ export default function ChatScreen() {
             />
 
             <View style={styles.inputContainer}>
+                <TouchableOpacity onPress={pickImage} style={styles.cameraButton}>
+                    <FontAwesome name="camera" size={24} color="white" />
+                </TouchableOpacity>
                 <TextInput
                     style={styles.input}
                     value={newMessage}
@@ -86,6 +120,17 @@ export default function ChatScreen() {
                     <FontAwesome name="send" size={24} color="white" />
                 </TouchableOpacity>
             </View>
+            {image && (
+                <View style={styles.imagePreviewContainer}>
+                    <Image source={{ uri: image }} style={styles.imagePreview} />
+                    <TouchableOpacity 
+                        style={styles.removeImageButton}
+                        onPress={() => setImage(null)}
+                    >
+                        <FontAwesome name="times" size={20} color="white" />
+                    </TouchableOpacity>
+                </View>
+            )}
         </KeyboardAvoidingView>
     );
 }
@@ -133,6 +178,12 @@ const styles = StyleSheet.create({
         fontSize: 16,
         color: '#fff',
     },
+    messageImage: {
+        width: 200,
+        height: 200,
+        borderRadius: 10,
+        marginBottom: 5,
+    },
     timestamp: {
         fontSize: 12,
         color: 'rgba(255, 255, 255, 0.7)',
@@ -154,11 +205,40 @@ const styles = StyleSheet.create({
         marginRight: 10,
         maxHeight: 100,
     },
+    cameraButton: {
+        backgroundColor: '#007AFF',
+        width: 50,
+        height: 50,
+        borderRadius: 25,
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginRight: 10,
+    },
     sendButton: {
         backgroundColor: '#007AFF',
         width: 50,
         height: 50,
         borderRadius: 25,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    imagePreviewContainer: {
+        position: 'relative',
+        margin: 10,
+    },
+    imagePreview: {
+        width: 100,
+        height: 100,
+        borderRadius: 10,
+    },
+    removeImageButton: {
+        position: 'absolute',
+        top: -10,
+        right: -10,
+        backgroundColor: '#ff4444',
+        width: 30,
+        height: 30,
+        borderRadius: 15,
         justifyContent: 'center',
         alignItems: 'center',
     },
