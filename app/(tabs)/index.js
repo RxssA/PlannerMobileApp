@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { View, Text, FlatList, TouchableOpacity, StyleSheet, Modal, Alert } from "react-native";
-import { getActivities, createActivity, deleteActivity } from "../../src/Api";
+import { getActivities, createActivity, deleteActivity, createUser, login } from "../../src/Api";
 import { useRouter } from "expo-router";
 import { FontAwesome } from '@expo/vector-icons';
 import { TextInput, Button } from "react-native";
@@ -11,15 +11,22 @@ export default function Home() {
     const router = useRouter();
     const [activities, setActivities] = useState([]);
     const [modalVisible, setModalVisible] = useState(false);
+    const [signupModalVisible, setSignupModalVisible] = useState(false);
+    const [loginModalVisible, setLoginModalVisible] = useState(false);
     const [newActivity, setNewActivity] = useState({ title: '', date: '', description: '' });
+    const [newUser, setNewUser] = useState({ username: '', email: '', password: '' });
+    const [loginCredentials, setLoginCredentials] = useState({ email: '', password: '' });
+    const [token, setToken] = useState(null);
 
     useEffect(() => {
-        loadActivities();
-    }, []);
+        if (token) {
+            loadActivities();
+        }
+    }, [token]);
 
     const loadActivities = async () => {
         try {
-            const response = await getActivities();
+            const response = await getActivities(token);
             if (response && response.data) {
                 setActivities(response.data);
             } else {
@@ -32,9 +39,41 @@ export default function Home() {
         }
     };
 
+    const handleLogin = async () => {
+        try {
+            const response = await login(loginCredentials);
+            if (response.data && response.data.token) {
+                setToken(response.data.token);
+                setLoginModalVisible(false);
+                setLoginCredentials({ email: '', password: '' });
+                Alert.alert('Success', 'Logged in successfully!');
+            }
+        } catch (error) {
+            console.error('Error logging in:', error);
+            // For fetch errors, the error message is in the error object itself
+            const errorMessage = error.message || 'Failed to login. Please try again.';
+            Alert.alert('Error', errorMessage);
+        }
+    };
+
+    const handleSignup = async () => {
+        try {
+            const response = await createUser(newUser);
+            if (response.data && response.data.token) {
+                setToken(response.data.token);
+                setSignupModalVisible(false);
+                setNewUser({ username: '', email: '', password: '' });
+                Alert.alert('Success', 'Account created successfully!');
+            }
+        } catch (error) {
+            console.error('Error creating user:', error);
+            Alert.alert('Error', 'Failed to create account. Please try again.');
+        }
+    };
+
     const handleCreateActivity = async () => {
         try {
-            const response = await createActivity(newActivity);
+            const response = await createActivity(newActivity, token);
             if (response.data) {
                 setModalVisible(false);
                 setNewActivity({ title: '', date: '', description: '' });
@@ -48,7 +87,7 @@ export default function Home() {
 
     const handleDeleteActivity = async (id) => {
         try {
-            await deleteActivity(id);
+            await deleteActivity(id, token);
             loadActivities();
         } catch (error) {
             console.error('Error deleting activity:', error);
@@ -68,50 +107,92 @@ export default function Home() {
         }
     };
 
+    const handleLogout = () => {
+        setToken(null);
+        setActivities([]);
+        Alert.alert('Success', 'Logged out successfully!');
+    };
+
     return (
         <View style={styles.container}>
-            <TouchableOpacity
-                style={styles.generalChatButton}
-                onPress={() => navigateToChat({ messages: [] })}
-            >
-                <Text style={styles.generalChatButtonText}>Go to General Chat</Text>
-            </TouchableOpacity>
-
-            {activities.length === 0 ? (
-                <View style={styles.emptyState}>
-                    <Text style={styles.emptyStateText}>No activities found</Text>
-                    <Text style={styles.emptyStateSubtext}>Create a new activity to get started!</Text>
-                </View>
-            ) : (
-                <FlatList
-                    data={activities}
-                    keyExtractor={(item) => item._id}
-                    renderItem={({ item }) => (
-                        
+            <View style={styles.headerButtons}>
+                {!token ? (
+                    <>
                         <TouchableOpacity 
-                            onPress={() => navigateToChat(item)}
-                            style={styles.activityCard}
+                            style={styles.loginButton}
+                            onPress={() => setLoginModalVisible(true)}
                         >
-                            <View style={styles.activityHeader}>
-                                <Text style={styles.activityTitle}>{item.title}</Text>
-                                <Button title="Delete" onPress={() => handleDeleteActivity(item._id)} />
+                            <Text style={styles.loginButtonText}>Login</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity 
+                            style={styles.signupButton}
+                            onPress={() => setSignupModalVisible(true)}
+                        >
+                            <Text style={styles.signupButtonText}>Sign Up</Text>
+                        </TouchableOpacity>
+                    </>
+                ) : (
+                    <>
+                        <TouchableOpacity 
+                            style={styles.generalChatButton}
+                            onPress={() => navigateToChat({ messages: [] })}
+                        >
+                            <Text style={styles.generalChatButtonText}>Go to General Chat</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity 
+                            style={styles.logoutButton}
+                            onPress={handleLogout}
+                        >
+                            <Text style={styles.logoutButtonText}>Logout</Text>
+                        </TouchableOpacity>
+                    </>
+                )}
+            </View>
+
+            {token ? (
+                activities.length === 0 ? (
+                    <View style={styles.emptyState}>
+                        <Text style={styles.emptyStateText}>No activities found</Text>
+                        <Text style={styles.emptyStateSubtext}>Create a new activity to get started!</Text>
+                    </View>
+                ) : (
+                    <FlatList
+                        data={activities}
+                        keyExtractor={(item) => item._id}
+                        renderItem={({ item }) => (
+                            <TouchableOpacity 
+                                onPress={() => navigateToChat(item)}
+                                style={styles.activityCard}
+                            >
+                                <View style={styles.activityHeader}>
+                                    <Text style={styles.activityTitle}>{item.title}</Text>
+                                    <Button title="Delete" onPress={() => handleDeleteActivity(item._id)} />
+                                </View>
                                 <Text style={styles.activityDate}>
                                     {new Date(item.date).toLocaleDateString()}
                                 </Text>
-                            </View>
-                            <Text style={styles.activityDescription}>{item.description}</Text>
-                        </TouchableOpacity>
-                    )}
-                />
+                                <Text style={styles.activityDescription}>{item.description}</Text>
+                            </TouchableOpacity>
+                        )}
+                    />
+                )
+            ) : (
+                <View style={styles.emptyState}>
+                    <Text style={styles.emptyStateText}>Welcome to Group Planner</Text>
+                    <Text style={styles.emptyStateSubtext}>Please login or sign up to get started!</Text>
+                </View>
             )}
 
-            <TouchableOpacity
-                style={styles.addButton}
-                onPress={() => setModalVisible(true)}
-            >
-                <FontAwesome name="plus" size={24} color="white" />
-            </TouchableOpacity>
+            {token && (
+                <TouchableOpacity 
+                    style={styles.addButton}
+                    onPress={() => setModalVisible(true)}
+                >
+                    <FontAwesome name="plus" size={24} color="white" />
+                </TouchableOpacity>
+            )}
 
+            {/* Activity Creation Modal */}
             <Modal
                 animationType="slide"
                 transparent={true}
@@ -147,6 +228,76 @@ export default function Home() {
                     </View>
                 </View>
             </Modal>
+
+            {/* Sign Up Modal */}
+            <Modal
+                animationType="slide"
+                transparent={true}
+                visible={signupModalVisible}
+                onRequestClose={() => setSignupModalVisible(false)}
+            >
+                <View style={styles.modalContainer}>
+                    <View style={styles.modalContent}>
+                        <Text style={styles.modalTitle}>Create Account</Text>
+                        <TextInput
+                            style={styles.input}
+                            placeholder="Username"
+                            value={newUser.username}
+                            onChangeText={(text) => setNewUser({ ...newUser, username: text })}
+                        />
+                        <TextInput
+                            style={styles.input}
+                            placeholder="Email"
+                            value={newUser.email}
+                            onChangeText={(text) => setNewUser({ ...newUser, email: text })}
+                            keyboardType="email-address"
+                        />
+                        <TextInput
+                            style={styles.input}
+                            placeholder="Password"
+                            value={newUser.password}
+                            onChangeText={(text) => setNewUser({ ...newUser, password: text })}
+                            secureTextEntry
+                        />
+                        <View style={styles.modalButtons}>
+                            <Button title="Cancel" onPress={() => setSignupModalVisible(false)} />
+                            <Button title="Sign Up" onPress={handleSignup} />
+                        </View>
+                    </View>
+                </View>
+            </Modal>
+
+            {/* Login Modal */}
+            <Modal
+                animationType="slide"
+                transparent={true}
+                visible={loginModalVisible}
+                onRequestClose={() => setLoginModalVisible(false)}
+            >
+                <View style={styles.modalContainer}>
+                    <View style={styles.modalContent}>
+                        <Text style={styles.modalTitle}>Login</Text>
+                        <TextInput
+                            style={styles.input}
+                            placeholder="Email"
+                            value={loginCredentials.email}
+                            onChangeText={(text) => setLoginCredentials({ ...loginCredentials, email: text })}
+                            keyboardType="email-address"
+                        />
+                        <TextInput
+                            style={styles.input}
+                            placeholder="Password"
+                            value={loginCredentials.password}
+                            onChangeText={(text) => setLoginCredentials({ ...loginCredentials, password: text })}
+                            secureTextEntry
+                        />
+                        <View style={styles.modalButtons}>
+                            <Button title="Cancel" onPress={() => setLoginModalVisible(false)} />
+                            <Button title="Login" onPress={handleLogin} />
+                        </View>
+                    </View>
+                </View>
+            </Modal>
         </View>
     );
 }
@@ -157,14 +308,57 @@ const styles = StyleSheet.create({
         padding: 20,
         backgroundColor: '#f5f5f5',
     },
+    headerButtons: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        marginBottom: 20,
+    },
+    loginButton: {
+        backgroundColor: '#007AFF',
+        padding: 15,
+        borderRadius: 5,
+        flex: 1,
+        marginRight: 10,
+        alignItems: 'center',
+    },
+    loginButtonText: {
+        color: 'white',
+        fontSize: 16,
+        fontWeight: 'bold',
+    },
+    signupButton: {
+        backgroundColor: '#28a745',
+        padding: 15,
+        borderRadius: 5,
+        flex: 1,
+        marginLeft: 10,
+        alignItems: 'center',
+    },
+    signupButtonText: {
+        color: 'white',
+        fontSize: 16,
+        fontWeight: 'bold',
+    },
     generalChatButton: {
         backgroundColor: '#007AFF',
         padding: 15,
         borderRadius: 5,
-        marginBottom: 20,
+        flex: 1,
         alignItems: 'center',
     },
     generalChatButtonText: {
+        color: 'white',
+        fontSize: 16,
+        fontWeight: 'bold',
+    },
+    logoutButton: {
+        backgroundColor: '#dc3545',
+        padding: 15,
+        borderRadius: 5,
+        marginLeft: 10,
+        alignItems: 'center',
+    },
+    logoutButtonText: {
         color: 'white',
         fontSize: 16,
         fontWeight: 'bold',
@@ -209,6 +403,7 @@ const styles = StyleSheet.create({
     },
     activityDate: {
         color: '#666',
+        marginBottom: 5,
     },
     activityDescription: {
         color: '#444',
