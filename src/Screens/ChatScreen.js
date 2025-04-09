@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { View, Text, TextInput, Button, FlatList } from "react-native";
 import io from "socket.io-client";
 
-const URL_socket = io("http://192.168.0.23:5000");
+const URL_socket = io("http://18.214.225.15:5000");
 
 const ChatScreen = ({ route }) => {
     const { activity } = route.params;

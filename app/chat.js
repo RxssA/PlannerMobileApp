@@ -7,7 +7,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import io from 'socket.io-client';
 
 // Connect to Socket.io server - use the same URL that's in your API URL but for the socket connection
-const SOCKET_URL = "http://192.168.0.23:5000";
+const SOCKET_URL = "http://18.214.225.15:5000";
 const socket = io(SOCKET_URL);
 
 export default function ChatScreen() {
