@@ -1,4 +1,4 @@
-const API_URL = "http://172.20.10.6:5000/api";
+const API_URL = "http://192.168.0.23:5000/api";
 
 const handleResponse = async (response) => {
     if (!response.ok) {

@@ -29,20 +29,11 @@ export default function TabLayout() {
                 }}
             />
             <Tabs.Screen
-                name="calendar"
-                options={{
-                    title: 'Calendar',
-                    tabBarIcon: ({ color }) => (
-                        <FontAwesome name="calendar-check-o" size={24} color={color} />
-                    ),
-                }}
-            />
-            <Tabs.Screen
                 name="todos"
                 options={{
-                    title: 'To-Dos',
+                    title: 'Todos',
                     tabBarIcon: ({ color }) => (
-                        <FontAwesome name="check-square-o" size={24} color={color} />
+                        <FontAwesome name="list" size={24} color={color} />
                     ),
                 }}
             />
