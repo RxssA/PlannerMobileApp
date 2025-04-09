@@ -4,8 +4,18 @@ import { getActivities, createActivity, deleteActivity, createUser, login } from
 import { useRouter } from "expo-router";
 import { FontAwesome } from '@expo/vector-icons';
 import { TextInput, Button } from "react-native";
+import * as Notifications from 'expo-notifications';
 
-const API_URL = "http://10.12.21.3:5000/api";
+// Configure notification handler
+Notifications.setNotificationHandler({
+    handleNotification: async () => ({
+        shouldShowAlert: true,
+        shouldPlaySound: false,
+        shouldSetBadge: false,
+    }),
+});
+
+const API_URL = "http://10.12.22.126:5000/api";
 
 export default function Home() {
     const router = useRouter();
@@ -74,6 +84,15 @@ export default function Home() {
         try {
             const response = await createActivity(newActivity, token);
             if (response.data) {
+                // Schedule notification
+                await Notifications.scheduleNotificationAsync({
+                    content: {
+                        title: "New Activity Created",
+                        body: `You've created a new activity: ${newActivity.title}`,
+                    },
+                    trigger: { seconds: 2 },
+                });
+                
                 setModalVisible(false);
                 setNewActivity({ title: '', date: '', description: '' });
                 loadActivities();
