@@ -57,8 +57,7 @@ export default function TodosScreen() {
             await deleteTodo(todoId);
             setTodos(todos.filter(t => t._id !== todoId));
         } catch (error) {
-            console.error('Error deleting todo:', error);
-            Alert.alert('Error', 'Failed to delete todo');
+            
         }
     };
 

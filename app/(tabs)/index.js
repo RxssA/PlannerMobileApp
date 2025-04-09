@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { View, Text, FlatList, TouchableOpacity, StyleSheet, Modal, Alert } from "react-native";
-import { getActivities, createActivity, deleteActivity, createUser, login } from "../../src/Api";
+import { getActivities, createActivity, deleteActivity, createUser, login, updateActivity } from "../../src/Api";
 import { useRouter } from "expo-router";
 import { FontAwesome } from '@expo/vector-icons';
 import { TextInput, Button } from "react-native";
@@ -27,6 +27,9 @@ export default function Home() {
     const [newUser, setNewUser] = useState({ username: '', email: '', password: '' });
     const [loginCredentials, setLoginCredentials] = useState({ email: '', password: '' });
     const [token, setToken] = useState(null);
+    const [isEditing, setIsEditing] = useState(false);
+    const [editingActivityId, setEditingActivityId] = useState(null);
+
 
     useEffect(() => {
         if (token) {
@@ -113,6 +116,33 @@ export default function Home() {
         }
     };
 
+    const handleUpdateActivity = async () => {
+        try {
+            const response = await updateActivity(editingActivityId, newActivity, token);
+            if (response) {
+                setModalVisible(false);
+                setNewActivity({ title: '', date: '', description: '' });
+                setIsEditing(false);
+                setEditingActivityId(null);
+                loadActivities();
+            }
+        } catch (error) {
+            console.error('Error updating activity:', error);
+        }
+    };
+    const startEditingActivity = (activity) => {
+        setNewActivity({
+            title: activity.title,
+            date: activity.date,
+            description: activity.description
+        });
+        setEditingActivityId(activity._id);
+        setIsEditing(true);
+        setModalVisible(true);
+    };
+    
+    
+
     const navigateToChat = (activity) => {
         try {
             router.push({
@@ -178,6 +208,7 @@ export default function Home() {
                             >
                                 <View style={styles.activityHeader}>
                                     <Text style={styles.activityTitle}>{item.title}</Text>
+                                    <Button title="Update" onPress={() => startEditingActivity(item)} />
                                     <Button title="Delete" onPress={() => handleDeleteActivity(item._id)} />
                                 </View>
                                 <Text style={styles.activityDate}>
@@ -234,7 +265,7 @@ export default function Home() {
                         />
                         <View style={styles.modalButtons}>
                             <Button title="Cancel" onPress={() => setModalVisible(false)} />
-                            <Button title="Create" onPress={handleCreateActivity} />
+                            <Button title={isEditing ? "Update" : "Create"} onPress={isEditing ? handleUpdateActivity : handleCreateActivity} />
                         </View>
                     </View>
                 </View>
