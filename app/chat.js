@@ -1,8 +1,14 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, FlatList, StyleSheet, KeyboardAvoidingView, Platform, Image } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { View, Text, TextInput, TouchableOpacity, FlatList, StyleSheet, KeyboardAvoidingView, Platform, Image, Alert } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { FontAwesome } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import io from 'socket.io-client';
+
+// Connect to Socket.io server - use the same URL that's in your API URL but for the socket connection
+const SOCKET_URL = "http://172.20.10.6:5000";
+const socket = io(SOCKET_URL);
 
 export default function ChatScreen() {
     const router = useRouter();
@@ -11,7 +17,23 @@ export default function ChatScreen() {
     const [newMessage, setNewMessage] = useState('');
     const [parsedActivity, setParsedActivity] = useState(null);
     const [image, setImage] = useState(null);
+    const [token, setToken] = useState(null);
+    const flatListRef = useRef(null);
 
+    // Get token from AsyncStorage
+    useEffect(() => {
+        const getToken = async () => {
+            try {
+                const userToken = await AsyncStorage.getItem('userToken');
+                setToken(userToken);
+            } catch (error) {
+                console.error('Error getting token:', error);
+            }
+        };
+        getToken();
+    }, []);
+
+    // Parse activity data
     useEffect(() => {
         try {
             if (activity) {
@@ -24,6 +46,72 @@ export default function ChatScreen() {
         }
     }, [activity]);
 
+    // Load messages when activity is parsed
+    useEffect(() => {
+        if (parsedActivity && parsedActivity._id) {
+            fetchMessages();
+            
+            // Set up socket event listener for this activity
+            socket.on('receiveMessage', (newMsg) => {
+                if (newMsg.activityId === parsedActivity._id) {
+                    setMessages(prevMessages => [
+                        ...prevMessages, 
+                        {
+                            id: newMsg.id || Date.now().toString(),
+                            text: newMsg.text || newMsg.message,
+                            image: newMsg.image,
+                            sender: newMsg.sender,
+                            timestamp: newMsg.timestamp
+                        }
+                    ]);
+                }
+            });
+            
+            return () => {
+                socket.off('receiveMessage');
+            };
+        }
+    }, [parsedActivity]);
+
+    // Scroll to bottom when messages change
+    useEffect(() => {
+        if (flatListRef.current && messages.length > 0) {
+            flatListRef.current.scrollToEnd({ animated: true });
+        }
+    }, [messages]);
+
+    const fetchMessages = async () => {
+        if (!parsedActivity || !parsedActivity._id) {
+            console.log('No activity ID available for fetching messages');
+            return;
+        }
+        
+        try {
+            console.log(`Fetching messages for activity: ${parsedActivity._id}`);
+            // Use the same URL as socket connection
+            const response = await fetch(`${SOCKET_URL}/api/chat/${parsedActivity._id}/messages`, {
+                headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+            });
+            
+            if (response.ok) {
+                const fetchedMessages = await response.json();
+                console.log(`Received ${fetchedMessages.length} messages from server`);
+                setMessages(fetchedMessages.map(msg => ({
+                    id: msg._id || msg.id || Date.now().toString(),
+                    text: msg.text || msg.message,
+                    image: msg.image,
+                    sender: msg.sender,
+                    timestamp: msg.timestamp
+                })));
+            } else {
+                const errorText = await response.text();
+                console.error('Failed to fetch messages:', response.status, errorText);
+            }
+        } catch (error) {
+            console.error('Error fetching messages:', error);
+        }
+    };
+
     const pickImage = async () => {
         const { status } = await ImagePicker.requestCameraPermissionsAsync();
         if (status !== 'granted') {
@@ -31,11 +119,12 @@ export default function ChatScreen() {
             return;
         }
 
+        // Set quality lower to reduce file size directly when capturing
         const result = await ImagePicker.launchCameraAsync({
             mediaTypes: ImagePicker.MediaTypeOptions.Images,
             allowsEditing: true,
             aspect: [4, 3],
-            quality: 1,
+            quality: 0.2, // Very low quality to ensure small size
         });
 
         if (!result.canceled) {
@@ -43,19 +132,81 @@ export default function ChatScreen() {
         }
     };
 
-    const sendMessage = () => {
-        if ((newMessage.trim() || image) && parsedActivity) {
-            const message = {
-                id: Date.now().toString(),
-                text: newMessage,
-                image: image,
+    const sendMessage = async () => {
+        if ((newMessage.trim() || image) && parsedActivity && parsedActivity._id) {
+            const messageId = Date.now().toString();
+            let imageData = null;
+            
+            // If there's an image, process it
+            if (image) {
+                try {
+                    console.log('Processing image for sending...');
+                    
+                    // Simple approach: just convert to base64
+                    const response = await fetch(image);
+                    const blob = await response.blob();
+                    console.log(`Image size: ${(blob.size / 1024).toFixed(2)} KB`);
+                    
+                    // Check if image is too large
+                    if (blob.size > 1024 * 1024) {
+                        Alert.alert('Image too large', 'Please try taking a photo with lower resolution');
+                        return;
+                    }
+                    
+                    const reader = new FileReader();
+                    imageData = await new Promise((resolve) => {
+                        reader.onloadend = () => {
+                            resolve(reader.result);
+                        };
+                        reader.readAsDataURL(blob);
+                    });
+                    
+                    console.log(`Base64 image size: ${imageData.length} bytes`);
+                } catch (error) {
+                    console.error('Error processing image:', error);
+                    Alert.alert('Error', 'Failed to process image for sending');
+                    return;
+                }
+            }
+            
+            const messageData = {
+                id: messageId,
+                text: newMessage.trim(),
+                image: imageData, // Now contains base64 data or null
                 sender: 'User', 
                 timestamp: new Date().toISOString(),
                 activityId: parsedActivity._id,
             };
-            setMessages([...messages, message]);
+            
+            // Add message to local state immediately for UI responsiveness
+            setMessages(prevMessages => [...prevMessages, messageData]);
             setNewMessage('');
             setImage(null);
+            
+            // Only send through the REST API for persistence
+            try {
+                console.log(`Saving message to activity ${parsedActivity._id} via REST API`);
+                const response = await fetch(`${SOCKET_URL}/api/chat/${parsedActivity._id}/messages`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+                    },
+                    body: JSON.stringify({
+                        sender: messageData.sender,
+                        text: messageData.text,
+                        image: messageData.image
+                    }),
+                });
+                
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    console.error('Failed to save message via REST API:', response.status, errorText);
+                }
+            } catch (error) {
+                console.error('Error saving message:', error);
+                Alert.alert('Error', 'Failed to send message. Please try again.');
+            }
         }
     };
 
@@ -80,8 +231,9 @@ export default function ChatScreen() {
             </View>
 
             <FlatList
+                ref={flatListRef}
                 data={messages}
-                keyExtractor={(item) => item.id}
+                keyExtractor={(item, index) => item.id ? item.id + index : index.toString()}
                 renderItem={({ item }) => (
                     <View style={[
                         styles.messageContainer,
@@ -89,9 +241,10 @@ export default function ChatScreen() {
                     ]}>
                         {item.image && (
                             <Image 
-                                source={{ uri: item.image }} 
+                                source={{ uri: item.image.startsWith('data:') ? item.image : `data:image/jpeg;base64,${item.image}` }} 
                                 style={styles.messageImage}
                                 resizeMode="cover"
+                                onError={(e) => console.log("Image loading error:", e.nativeEvent.error)}
                             />
                         )}
                         {item.text && (
@@ -103,6 +256,7 @@ export default function ChatScreen() {
                     </View>
                 )}
                 style={styles.messagesList}
+                onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
             />
 
             <View style={styles.inputContainer}>
